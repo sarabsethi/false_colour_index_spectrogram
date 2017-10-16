@@ -1,6 +1,7 @@
 *.wav
 *.aac
 *.zip
+*.npy
 .idea
 
 # Byte-compiled / optimized / DLL files
