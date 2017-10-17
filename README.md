@@ -8,6 +8,9 @@ Generate a false colour index spectrogram to nicely visualise long duration soun
 
 "plot_fci_spectrogram" to show false colour index spectrogram (without recalculating indices)
 
+### Example output plot:
+![Example 24 hour false colour index spectrogram](https://raw.githubusercontent.com/sarabsethi/false_colour_index_spectrogram/master/example_24_hrs.JPG)
+
 ## Input / output data format
 It is assumed that a series of 1 minute files are stored in ./input_audio/ dir
 
