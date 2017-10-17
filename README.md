@@ -16,7 +16,7 @@ Generate a false colour index spectrogram to nicely visualise long duration soun
 It is assumed that a series of 1 minute files are stored in ./input_audio/ dir
 
 If you have long duration recordings, to split into individual files use ffmpeg:
-`ffmpeg -i long_input_file.wav -f segment -segment_time 60 -c copy short_output_file_%02d.wav`
+`ffmpeg -i long_input_file.wav -f segment -segment_time 60 -c copy short_output_file_%06d.wav`
 then transfer these one minute files to ./input_audio/ and you're ready to go
 
 Numpy ndarrays storing individual index spectrograms are stored in ./output_spectrograms/ dir
