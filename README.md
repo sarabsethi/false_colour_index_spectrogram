@@ -3,7 +3,9 @@ Generate a false colour index spectrogram to nicely visualise long duration soun
 
 ## Scripts
 "main_calc_fci_spectrogram.py" calculates the indices for the false colour index spectrogram
+
 "plot_index_distributions.py" used to look at the distribution of values for each of the three indices
+
 "plot_fci_spectrogram" to show false colour index spectrogram (without recalculating indices)
 
 ## Input / output data format
