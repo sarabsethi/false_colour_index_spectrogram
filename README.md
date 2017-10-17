@@ -9,6 +9,7 @@ Generate a false colour index spectrogram to nicely visualise long duration soun
 "plot_fci_spectrogram" to show false colour index spectrogram (without recalculating indices)
 
 ### Example output plot:
+24 hours recorded from a tropical rainforest in Sabah, Borneo. Dawn and dusk choruses are clearly visible with different patterns of calling during the day and night time
 ![Example 24 hour false colour index spectrogram](https://raw.githubusercontent.com/sarabsethi/false_colour_index_spectrogram/master/example_24_hrs.JPG)
 
 ## Input / output data format
