@@ -19,4 +19,5 @@ Numpy ndarrays storing individual index spectrograms are stored in ./output_spec
 
 ## Authors
 [Sarab Sethi](http://www.imperial.ac.uk/people/s.sethi16) (Imperial College London)
-[Dan Stowell](http://www.mcld.co.uk/) (Queen Mary University of London)
+
+Based on code from [Dan Stowell](http://www.mcld.co.uk/) (Queen Mary University of London)
