@@ -6,9 +6,9 @@ import glob
 
 # Load index spectrograms from file
 output_dir = './output_spectrograms'
-aci_spec = np.load(os.path.join(output_dir,'aci_spec.npy'))
-fentropy_spec = np.load(os.path.join(output_dir,'fentropy_spec.npy'))
-mag_spec = np.load(os.path.join(output_dir,'mags.npy'))
+aci_spec = np.load(os.path.join(output_dir,'indexdata_aci.npz'))['specdata']
+fentropy_spec = np.load(os.path.join(output_dir,'indexdata_fentropy.npz'))['specdata']
+mag_spec = np.load(os.path.join(output_dir,'indexdata_specpow.npz'))['specdata']
 
 # Plot histogram of ACI values
 plt.subplot(311)
@@ -25,7 +25,7 @@ plt.ylabel('Frequency')
 # Plot histogram of magnitude values
 plt.subplot(313)
 plt.hist(mag_spec.flatten())
-plt.xlabel('Magnitude')
+plt.xlabel('Power')
 plt.ylabel('Frequency')
 
 plt.show()
