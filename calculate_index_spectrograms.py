@@ -71,7 +71,7 @@ def calculate_index_spectrograms(infpath):
 	#############################################
 	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
 	for aninfpath in infpath:
-		print(aninfpath)
+		#print(aninfpath)
 		audiodata, audiosr = librosa.core.load(aninfpath, sr=None, mono=True)
 		#print("Full audio duration is %s samples (%i seconds)" % (np.shape(audiodata), len(audiodata)/audiosr))
 		if dochop:
@@ -107,14 +107,14 @@ def plot_fci_spectrogram(data_dir, doscaling=False, Fs=44100):
 
 	false_colour_image = np.array([np.load(os.path.join(data_dir, 'indexdata_%s.npz' % statname))['specdata'] for statname in statnames])
 	false_colour_image = np.transpose(false_colour_image, axes=(2,1,0))
-	print np.shape(false_colour_image)
+	#print np.shape(false_colour_image)
 
 	if doscaling:
 		perc_cutoff = 10
 		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff)) / np.percentile(false_colour_image, 100-perc_cutoff)
 
 	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
-	print maxtime
+	#print maxtime
 	timeunits = 'minutes'
 	if maxtime > 60:
 		maxtime /= 60.
