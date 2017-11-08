@@ -90,6 +90,10 @@ def calculate_index_spectrograms(infpath):
 def calculate_and_write_index_spectrograms(infpath, output_dir):
 	"""simply iterates over the 1ry func and writes out files in our standard format (each channel a separate file, and each file a npz array)"""
 
+	# Make output directory if it doesn't exists
+	if not os.path.exists(output_dir):
+		os.makedirs(output_dir)
+
 	arrays = [[] for statname in statnames]
 	for results in calculate_index_spectrograms(infpath):
 		for (anarray, aresult) in zip(arrays, results):
@@ -146,4 +150,3 @@ if __name__=='__main__':
 	ourplot = plot_fci_spectrogram(args.o)
 	ourplot.show()
 	raw_input("Press a key to close")
-
