@@ -60,13 +60,18 @@ def calculate_index_spectrograms(infpath):
 
 	#############################################
 	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
-	if os.path.isdir(infpath):
-		# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
-		infpath = sorted(glob.iglob(os.path.join(infpath, "*.wav")))
-
-	if type(infpath) in [str, unicode]: # a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
-		infpath = [infpath]
-		dochop = True
+	if type(infpath) in [str, unicode]:
+		if os.path.isdir(infpath):
+			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
+			infpath = sorted(glob.iglob(os.path.join(infpath, "*.wav")))
+		else:
+			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
+			infpath = [infpath]
+			dochop = True
+	else:
+		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
+		if len(infpath)==1:
+			dochop = True
 
 	#############################################
 	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
