@@ -106,7 +106,7 @@ def calculate_and_write_index_spectrograms(infpath, output_dir):
 		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
 
 ########################
-def plot_fci_spectrogram(data_dir, doscaling=False, Fs=44100):
+def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
 	import matplotlib.pyplot as plt
 
@@ -116,7 +116,10 @@ def plot_fci_spectrogram(data_dir, doscaling=False, Fs=44100):
 
 	if doscaling:
 		perc_cutoff = 10
-		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff)) / np.percentile(false_colour_image, 100-perc_cutoff)
+		print np.shape(false_colour_image)
+		print np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True))
+		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)) \
+		                                         / np.percentile(false_colour_image, 100-perc_cutoff, axis=(0,1), keepdims=True)
 
 	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
 	#print maxtime
