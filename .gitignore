@@ -5,6 +5,9 @@
 *.npy
 .idea
 
+input_audio
+output_spectrograms
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
