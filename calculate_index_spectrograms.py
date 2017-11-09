@@ -60,18 +60,23 @@ def calculate_index_spectrograms(infpath):
 
 	#############################################
 	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
-	if os.path.isdir(infpath):
-		# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
-		infpath = sorted(glob.iglob(os.path.join(infpath, "*.wav")))
-
-	if type(infpath) in [str, unicode]: # a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
-		infpath = [infpath]
-		dochop = True
+	if type(infpath) in [str, unicode]:
+		if os.path.isdir(infpath):
+			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
+			infpath = sorted(glob.iglob(os.path.join(infpath, "*.wav")))
+		else:
+			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
+			infpath = [infpath]
+			dochop = True
+	else:
+		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
+		if len(infpath)==1:
+			dochop = True
 
 	#############################################
 	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
 	for aninfpath in infpath:
-		print(aninfpath)
+		#print(aninfpath)
 		audiodata, audiosr = librosa.core.load(aninfpath, sr=None, mono=True)
 		#print("Full audio duration is %s samples (%i seconds)" % (np.shape(audiodata), len(audiodata)/audiosr))
 		if dochop:
@@ -105,20 +110,23 @@ def calculate_and_write_index_spectrograms(infpath, output_dir):
 		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
 
 ########################
-def plot_fci_spectrogram(data_dir, doscaling=False, Fs=44100):
+def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
 	import matplotlib.pyplot as plt
 
 	false_colour_image = np.array([np.load(os.path.join(data_dir, 'indexdata_%s.npz' % statname))['specdata'] for statname in statnames])
 	false_colour_image = np.transpose(false_colour_image, axes=(2,1,0))
-	print np.shape(false_colour_image)
+	#print np.shape(false_colour_image)
 
 	if doscaling:
 		perc_cutoff = 10
-		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff)) / np.percentile(false_colour_image, 100-perc_cutoff)
+		print np.shape(false_colour_image)
+		print np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True))
+		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)) \
+		                                         / np.percentile(false_colour_image, 100-perc_cutoff, axis=(0,1), keepdims=True)
 
 	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
-	print maxtime
+	#print maxtime
 	timeunits = 'minutes'
 	if maxtime > 60:
 		maxtime /= 60.
