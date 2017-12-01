@@ -4,6 +4,7 @@
 *.zip
 *.npy
 .idea
+*.npz
 
 input_audio
 output_spectrograms

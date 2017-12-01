@@ -25,11 +25,11 @@ def aci(spectro):
 
 def magsum(spectro):
 	"Calculate sum-of-magnitudes for each freq bin separately"
-        return np.sum(spectro, axis=1)
+	return np.sum(spectro, axis=1)
 
 def specpow(spectro):
 	"Calculate power for each freq bin separately"
-        return np.mean(spectro * spectro, axis=1)
+	return np.mean(spectro * spectro, axis=1)
 
 
 ############################################################
@@ -49,7 +49,7 @@ def calculate_index_spectrograms(infpath):
 	"""Supply either a list of wav file paths, or a folder to be globbed, or a single file path (to be chopped into 60s chunks).
 	This is a generator function which will create an ITERATOR, returning one new column of index-pixel data on every loop of the iter."""
 
-	dochop = False
+	dochop = True
 	if type(infpath) in [str, unicode]:
 		if not os.path.exists(infpath):
 			raise ValueError("Path not found: %s" % infpath)
@@ -75,17 +75,20 @@ def calculate_index_spectrograms(infpath):
 
 	#############################################
 	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
+	infpath = sorted(infpath)
 	for aninfpath in infpath:
 		#print(aninfpath)
 		audiodata, audiosr = librosa.core.load(aninfpath, sr=None, mono=True)
-		#print("Full audio duration is %s samples (%i seconds)" % (np.shape(audiodata), len(audiodata)/audiosr))
+		print("%s: Full audio duration is %s samples (%i seconds)" % (aninfpath, np.shape(audiodata), len(audiodata)/audiosr))
 		if dochop:
 			choplenspls = int(librosa.core.time_to_samples(choplensecs, audiosr)[0])
 		else:
 			choplenspls = len(audiodata)
 
 		for whichchunk, offset in enumerate(range(0, len(audiodata), choplenspls)):
-			#print("    chunk %i is [%i:%i]" % (whichchunk, offset, offset+choplenspls))
+			if (offset+choplenspls) > len(audiodata):
+				continue
+			# print("    chunk %i is [%i:%i]" % (whichchunk, offset, offset+choplenspls))
 			audiochunk = audiodata[offset:offset+choplenspls]
 			spectro = abs(librosa.core.stft(audiochunk))
 			somedata = calculate_index_spectrogram_singlecolumn(spectro)
@@ -112,6 +115,7 @@ def calculate_and_write_index_spectrograms(infpath, output_dir):
 ########################
 def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
+	import matplotlib
 	import matplotlib.pyplot as plt
 
 	false_colour_image = np.array([np.load(os.path.join(data_dir, 'indexdata_%s.npz' % statname))['specdata'] for statname in statnames])
@@ -131,6 +135,10 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 	if maxtime > 60:
 		maxtime /= 60.
 		timeunits = "hours"
+
+	matplotlib.rcParams.update({'font.size': 30})
+	matplotlib.rcParams.update({'font.family' : 'serif'})
+	fig=plt.figure(facecolor='white')
 	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2))
 	plt.xlabel('Time (%s)' % timeunits)
 	plt.ylabel('Frequency (Hz)')
