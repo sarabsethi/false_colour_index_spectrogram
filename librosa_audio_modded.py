@@ -16,6 +16,8 @@ from librosa import cache
 from librosa import util
 from librosa.util.exceptions import ParameterError
 
+from librosa.core import resample
+
 # Resampling bandwidths as percentage of Nyquist
 BW_BEST = resampy.filters.get_filter('kaiser_best')[2]
 BW_FASTEST = resampy.filters.get_filter('kaiser_fast')[2]
@@ -103,7 +105,7 @@ def load_yield_chunks(path, sr=22050, mono=True, offset=0.0, duration=None,
 
     """
 
-    y = []
+    y = np.array([], dtype=dtype)
     with audioread.audio_open(os.path.realpath(path)) as input_file:
         sr_native = input_file.samplerate
         n_channels = input_file.channels
@@ -140,26 +142,25 @@ def load_yield_chunks(path, sr=22050, mono=True, offset=0.0, duration=None,
                 # beginning is in this frame
                 frame = frame[(s_start - n_prev):]
 
-            # tack on the current frame
-            y.append(frame)
+            # NB here we apply to one single frame, the postprocessing that librosa applies to the whole file at the end
+            if n_channels > 1:
+                frame = frame.reshape((-1, n_channels)).T
+                if mono:
+                    frame = to_mono(frame)
 
-    if y:
-        y = np.concatenate(y)
+            if sr is not None:
+                frame = resample(frame, sr_native, sr, res_type=res_type)
 
-        if n_channels > 1:
-            y = y.reshape((-1, n_channels)).T
-            if mono:
-                y = to_mono(y)
+            else:
+                sr = sr_native
+            # Final cleanup for dtype and contiguity
+            frame = np.ascontiguousarray(frame, dtype=dtype)
 
-        if sr is not None:
-            y = resample(y, sr_native, sr, res_type=res_type)
+            y = np.concatenate((y, frame))
+            while y.shape[0] >= choplenspls:
+                yield (y[:choplenspls], sr)
+                y = y[choplenspls:]
 
-        else:
-            sr = sr_native
-
-    # Final cleanup for dtype and contiguity
-    y = np.ascontiguousarray(y, dtype=dtype)
-
-    return (y, sr)
-
+    if y.shape[0] != 0:
+        print("WARNING: load_yield_chunks() dropped %i final samples" % (y.shape[0]))
 

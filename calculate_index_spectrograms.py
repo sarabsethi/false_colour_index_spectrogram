@@ -5,7 +5,7 @@ import numpy as np
 from scipy.stats import entropy
 
 import librosa
-
+from librosa_audio_modded import load_yield_chunks
 
 
 # some constants
@@ -78,18 +78,12 @@ def calculate_index_spectrograms(infpath):
 	infpath = sorted(infpath)
 	for aninfpath in infpath:
 		#print(aninfpath)
-		audiodata, audiosr = librosa.core.load(aninfpath, sr=None, mono=True)
-		print("%s: Full audio duration is %s samples (%i seconds)" % (aninfpath, np.shape(audiodata), len(audiodata)/audiosr))
+		_, audiosr = librosa.core.load(aninfpath, sr=None, mono=True, offset=0, duration=0) # to find the SR
 		if dochop:
 			choplenspls = int(librosa.core.time_to_samples(choplensecs, audiosr)[0])
 		else:
 			choplenspls = len(audiodata)
-
-		for whichchunk, offset in enumerate(range(0, len(audiodata), choplenspls)):
-			if (offset+choplenspls) > len(audiodata):
-				continue
-			# print("    chunk %i is [%i:%i]" % (whichchunk, offset, offset+choplenspls))
-			audiochunk = audiodata[offset:offset+choplenspls]
+		for (audiochunk, audiosr) in load_yield_chunks(aninfpath, sr=None, mono=True, choplenspls=choplenspls):
 			spectro = abs(librosa.core.stft(audiochunk))
 			somedata = calculate_index_spectrogram_singlecolumn(spectro)
 			yield somedata
