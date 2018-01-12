@@ -11,15 +11,13 @@ Generate a false colour index spectrogram to nicely visualise long duration soun
 ![Example 24 hour false colour index spectrogram](https://raw.githubusercontent.com/sarabsethi/false_colour_index_spectrogram/master/example_24_hrs.JPG)
 
 ## Input / output data format
-Input can be a single long file which will be split into 1-minute chunks, OR a folder containing a series of WAV files (we assume they are 1 minute long).
+Input can be a single long file which will be analysed in 1-minute chunks, OR a folder containing a series of WAV files (we assume they are 1 minute long).
 
-If you have long duration recordings, you can supply them as single large files BUT the script may encounter issues loading them all into memory. As an alternative, to split a large file into individual files use ffmpeg:
-`ffmpeg -i long_input_file.wav -f segment -segment_time 60 -c copy short_output_file_%06d.wav`
-then transfer these one minute files to ./input_audio/ and you're ready to go
+Long-duration recordings in single large WAV files can be handled by this script. On our laptop it takes about 30min to analyse 12 hours (i.e. 24x speed) -- the time taken will scale linearly with the length of the input. Note that it's NOT any faster to split the audio into chunks first.
 
-Numpy ndarrays storing individual index spectrograms are stored in ./output_spectrograms/ dir
+Numpy ndarrays storing individual index spectrograms are stored in ./output_spectrograms/ folder.
 
 ## Authors
-[Sarab Sethi](http://www.imperial.ac.uk/people/s.sethi16) (Imperial College London)
-[Dan Stowell](http://mcld.co.uk/research/) (Queen Mary University of London)
+* [Sarab Sethi](http://www.imperial.ac.uk/people/s.sethi16) (Imperial College London)
+* [Dan Stowell](http://mcld.co.uk/research/) (Queen Mary University of London)
 

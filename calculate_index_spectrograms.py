@@ -5,7 +5,7 @@ import numpy as np
 from scipy.stats import entropy
 
 import librosa
-
+from librosa_audio_modded import load_yield_chunks
 
 
 # some constants
@@ -60,6 +60,10 @@ def calculate_index_spectrograms(infpath):
 
 	#############################################
 	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
+	if type(infpath) not in [str, unicode]:
+		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
+		if len(infpath)==1:  # in this special case, we strip off the list so the next check can determine if it's a folder to glob
+			infpath = infpath[0]
 	if type(infpath) in [str, unicode]:
 		if os.path.isdir(infpath):
 			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
@@ -68,28 +72,18 @@ def calculate_index_spectrograms(infpath):
 			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
 			infpath = [infpath]
 			dochop = True
-	else:
-		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
-		if len(infpath)==1:
-			dochop = True
 
 	#############################################
 	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
 	infpath = sorted(infpath)
 	for aninfpath in infpath:
 		#print(aninfpath)
-		audiodata, audiosr = librosa.core.load(aninfpath, sr=None, mono=True)
-		print("%s: Full audio duration is %s samples (%i seconds)" % (aninfpath, np.shape(audiodata), len(audiodata)/audiosr))
+		_, audiosr = librosa.core.load(aninfpath, sr=None, mono=True, offset=0, duration=0) # to find the SR
 		if dochop:
 			choplenspls = int(librosa.core.time_to_samples(choplensecs, audiosr)[0])
 		else:
 			choplenspls = len(audiodata)
-
-		for whichchunk, offset in enumerate(range(0, len(audiodata), choplenspls)):
-			if (offset+choplenspls) > len(audiodata):
-				continue
-			# print("    chunk %i is [%i:%i]" % (whichchunk, offset, offset+choplenspls))
-			audiochunk = audiodata[offset:offset+choplenspls]
+		for (audiochunk, audiosr) in load_yield_chunks(aninfpath, sr=None, mono=True, choplenspls=choplenspls):
 			spectro = abs(librosa.core.stft(audiochunk))
 			somedata = calculate_index_spectrogram_singlecolumn(spectro)
 			yield somedata
@@ -124,8 +118,8 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 
 	if doscaling:
 		perc_cutoff = 10
-		print np.shape(false_colour_image)
-		print np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True))
+		#print np.shape(false_colour_image)
+		#print np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True))
 		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)) \
 		                                         / np.percentile(false_colour_image, 100-perc_cutoff, axis=(0,1), keepdims=True)
 
@@ -148,14 +142,16 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 if __name__=='__main__':
 	import argparse
 
-	#default_in  = '/home/dans/birdsong/bl_dawnchorus_atmospheres/as_mono/022A-WA09020XXXXX-0916M0.flac'
-	default_in  = 'input_audio'
+	default_in  = '/home/dans/birdsong/bl_dawnchorus_atmospheres/as_mono/022A-WA09020XXXXX-0916M0.flac'
+	#default_in  = 'input_audio'
+	default_in  = '/home/dans/birdsong/jolle/20120203-AU1.WAV'
 	default_out = 'output_spectrograms'
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument("inpaths", nargs='*', default=default_in, help="Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify")
 	parser.add_argument("-o", default=default_out, type=str, help="Output path: a folder (which should exist already) in which data files will be written.")
 	parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
+	parser.add_argument("-n", default=0, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
 	args = parser.parse_args()
 	print args
 
@@ -163,6 +159,6 @@ if __name__=='__main__':
 		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o)
 
 	# now plot
-	ourplot = plot_fci_spectrogram(args.o)
+	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n)
 	ourplot.show()
 	raw_input("Press a key to close")
