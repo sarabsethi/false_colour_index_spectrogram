@@ -118,8 +118,8 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 
 	if doscaling:
 		perc_cutoff = 10
-		print np.shape(false_colour_image)
-		print np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True))
+		#print np.shape(false_colour_image)
+		#print np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True))
 		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)) \
 		                                         / np.percentile(false_colour_image, 100-perc_cutoff, axis=(0,1), keepdims=True)
 
@@ -142,14 +142,16 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 if __name__=='__main__':
 	import argparse
 
-	#default_in  = '/home/dans/birdsong/bl_dawnchorus_atmospheres/as_mono/022A-WA09020XXXXX-0916M0.flac'
-	default_in  = 'input_audio'
+	default_in  = '/home/dans/birdsong/bl_dawnchorus_atmospheres/as_mono/022A-WA09020XXXXX-0916M0.flac'
+	#default_in  = 'input_audio'
+	default_in  = '/home/dans/birdsong/jolle/20120203-AU1.WAV'
 	default_out = 'output_spectrograms'
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument("inpaths", nargs='*', default=default_in, help="Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify")
 	parser.add_argument("-o", default=default_out, type=str, help="Output path: a folder (which should exist already) in which data files will be written.")
 	parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
+	parser.add_argument("-n", default=0, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
 	args = parser.parse_args()
 	print args
 
@@ -157,6 +159,6 @@ if __name__=='__main__':
 		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o)
 
 	# now plot
-	ourplot = plot_fci_spectrogram(args.o)
+	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n)
 	ourplot.show()
 	raw_input("Press a key to close")
