@@ -60,6 +60,10 @@ def calculate_index_spectrograms(infpath):
 
 	#############################################
 	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
+	if type(infpath) not in [str, unicode]:
+		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
+		if len(infpath)==1:  # in this special case, we strip off the list so the next check can determine if it's a folder to glob
+			infpath = infpath[0]
 	if type(infpath) in [str, unicode]:
 		if os.path.isdir(infpath):
 			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
@@ -67,10 +71,6 @@ def calculate_index_spectrograms(infpath):
 		else:
 			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
 			infpath = [infpath]
-			dochop = True
-	else:
-		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
-		if len(infpath)==1:
 			dochop = True
 
 	#############################################
