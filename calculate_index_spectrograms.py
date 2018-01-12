@@ -3,6 +3,7 @@ import os, glob
 
 import numpy as np
 from scipy.stats import entropy
+from scipy.ndimage.filters import maximum_filter
 
 import librosa
 from librosa_audio_modded import load_yield_chunks
@@ -107,7 +108,7 @@ def calculate_and_write_index_spectrograms(infpath, output_dir):
 		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
 
 ########################
-def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
+def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, ribbon=False):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
 	import matplotlib
 	import matplotlib.pyplot as plt
@@ -121,8 +122,7 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 		#print np.shape(false_colour_image)
 		#print np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True))
 		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)) \
-		                                         / np.percentile(false_colour_image, 100-perc_cutoff, axis=(0,1), keepdims=True)
-
+												 / np.percentile(false_colour_image, 100-perc_cutoff, axis=(0,1), keepdims=True)
 	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
 	#print maxtime
 	timeunits = 'minutes'
@@ -130,12 +130,49 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 		maxtime /= 60.
 		timeunits = "hours"
 
+	ylab = 'Frequency (Hz)'
+	if ribbon:
+		if maxtime < 24:
+			print('Ribbon requested, but data covers less than minimum of one day - continuing with default behaviour')
+		else:
+			ylab = 'Days'
+			maxtime = 24
+			crop_len_24hr = int(60 * 24 * (float(choplensecs)/60.))
+			crop_start = 0
+			tot_x_pix = np.shape(false_colour_image)[1]
+			tot_y_pix = np.shape(false_colour_image)[0]
+			vpadding = int(tot_y_pix*0.2)
+			ribbon_plot = np.ndarray((0,crop_len_24hr,3))
+			while crop_start < tot_x_pix:
+				crop_end = crop_start + crop_len_24hr
+				crop_end = crop_end if crop_end < tot_x_pix else tot_x_pix
+				day_img = false_colour_image[:, crop_start:crop_end, :]
+
+				print(day_img.shape)
+				if day_img.shape[1] < crop_len_24hr:
+					padded_day_img = np.zeros((tot_y_pix,crop_len_24hr,3))
+					padded_day_img[:day_img.shape[0],:day_img.shape[1]] = day_img
+					day_img = padded_day_img
+
+				ribbon_plot = np.vstack((day_img,np.zeros((vpadding,crop_len_24hr,3)),ribbon_plot))
+				print(ribbon_plot.shape)
+
+				crop_start += crop_len_24hr
+
+			false_colour_image = maximum_filter(ribbon_plot,footprint=np.ones((8,1,1)))
+			print(false_colour_image.shape)
+
 	matplotlib.rcParams.update({'font.size': 30})
 	matplotlib.rcParams.update({'font.family' : 'serif'})
 	fig=plt.figure(facecolor='white')
-	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2))
+	#plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2))
+	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, false_colour_image.shape[0]))
+
+	frame1 = plt.gca()
+	frame1.axes.yaxis.set_ticklabels([])
+
 	plt.xlabel('Time (%s)' % timeunits)
-	plt.ylabel('Frequency (Hz)')
+	plt.ylabel(ylab)
 	return plt.gcf()
 
 ########################
@@ -145,13 +182,14 @@ if __name__=='__main__':
 	default_in  = '/home/dans/birdsong/bl_dawnchorus_atmospheres/as_mono/022A-WA09020XXXXX-0916M0.flac'
 	#default_in  = 'input_audio'
 	default_in  = '/home/dans/birdsong/jolle/20120203-AU1.WAV'
-	default_out = 'output_spectrograms'
+	default_out = 'output_spectrograms_1_week_from_16_nov_17_e100'
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument("inpaths", nargs='*', default=default_in, help="Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify")
 	parser.add_argument("-o", default=default_out, type=str, help="Output path: a folder (which should exist already) in which data files will be written.")
 	parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
 	parser.add_argument("-n", default=0, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
+	parser.add_argument("-r", default=0, type=int, choices=[0,1], help="Whether to create ribbon plots where spectrograms are stacked by days (assuming data starts from midnight first day).")
 	args = parser.parse_args()
 	print args
 
@@ -159,6 +197,6 @@ if __name__=='__main__':
 		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o)
 
 	# now plot
-	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n)
+	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, ribbon=args.r)
 	ourplot.show()
 	raw_input("Press a key to close")
