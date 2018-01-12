@@ -165,11 +165,13 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, ribbon=False):
 	matplotlib.rcParams.update({'font.size': 30})
 	matplotlib.rcParams.update({'font.family' : 'serif'})
 	fig=plt.figure(facecolor='white')
-	#plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2))
-	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, false_colour_image.shape[0]))
+	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2))
 
-	frame1 = plt.gca()
-	frame1.axes.yaxis.set_ticklabels([])
+	# quick hack 
+	if ribbon:
+		frame1 = plt.gca()
+		frame1.axes.yaxis.set_ticklabels([])
+
 
 	plt.xlabel('Time (%s)' % timeunits)
 	plt.ylabel(ylab)
