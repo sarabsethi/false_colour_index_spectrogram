@@ -134,6 +134,7 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, ribbon=False):
 	if ribbon:
 		if maxtime < 24:
 			print('Ribbon requested, but data covers less than minimum of one day - continuing with default behaviour')
+			ribbon = false
 		else:
 			ylab = 'Days'
 			maxtime = 24
@@ -154,6 +155,7 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, ribbon=False):
 					padded_day_img[:day_img.shape[0],:day_img.shape[1]] = day_img
 					day_img = padded_day_img
 
+				# TODO: remove padding from on top of first day
 				ribbon_plot = np.vstack((day_img,np.zeros((vpadding,crop_len_24hr,3)),ribbon_plot))
 				print(ribbon_plot.shape)
 
@@ -167,7 +169,7 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, ribbon=False):
 	fig=plt.figure(facecolor='white')
 	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2))
 
-	# quick hack 
+	# quick hack - TODO: label days on y axis
 	if ribbon:
 		frame1 = plt.gca()
 		frame1.axes.yaxis.set_ticklabels([])
