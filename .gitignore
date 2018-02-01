@@ -1,3 +1,7 @@
+*.png
+*.svg
+*.eps
+
 *.wav
 *.aac
 *.mp3
