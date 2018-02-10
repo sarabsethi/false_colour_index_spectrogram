@@ -28,7 +28,7 @@ BW_FASTEST = resampy.filters.get_filter('kaiser_fast')[2]
 # Load should never be cached, since we cannot verify that the contents of
 # 'path' are unchanged across calls.
 def load_yield_chunks(path, sr=22050, mono=True, offset=0.0, duration=None,
-         dtype=np.float32, res_type='kaiser_best', choplenspls=0):
+         dtype=np.float32, res_type='kaiser_best', choplenspls=0, hoplenspls=0):
     """Load an audio file as a floating point time series.
     This is MODIFIED from librosa's own load() function, to yield chunks one-by-one so they never all need to be loaded into memory.
 
@@ -106,6 +106,9 @@ def load_yield_chunks(path, sr=22050, mono=True, offset=0.0, duration=None,
 
     """
 
+    if not hoplenspls or (hoplenspls<=0 or hoplenspls > choplenspls):
+        hoplenspls = choplenspls
+
     y = np.array([], dtype=dtype)
     with audioread.audio_open(os.path.realpath(path)) as input_file:
         sr_native = input_file.samplerate
@@ -160,7 +163,7 @@ def load_yield_chunks(path, sr=22050, mono=True, offset=0.0, duration=None,
             y = np.concatenate((y, frame))
             while y.shape[0] >= choplenspls:
                 yield (y[:choplenspls], sr)
-                y = y[choplenspls:]
+                y = y[hoplenspls:]
 
     if y.shape[0] != 0:
         print("WARNING: load_yield_chunks() dropped %i final samples" % (y.shape[0]))   # TODO can the final incomplete chunk be handled elegantly within the above loop?
