@@ -133,9 +133,10 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 	matplotlib.rcParams.update({'font.size': 30})
 	matplotlib.rcParams.update({'font.family' : 'serif'})
 	fig=plt.figure(figsize=(15, 5), facecolor='white')
-	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2))
+	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2000))
+	plt.rcParams.update({'font.size': 12})
 	plt.xlabel('Time (%s)' % timeunits)
-	plt.ylabel('Frequency (Hz)')
+	plt.ylabel('Frequency (kHz)')
 	plt.tight_layout()
 	return plt.gcf()
 

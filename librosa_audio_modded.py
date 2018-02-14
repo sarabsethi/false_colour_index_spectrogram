@@ -12,6 +12,7 @@ import scipy.fftpack as fft
 import resampy
 
 from librosa.core.time_frequency import frames_to_samples, time_to_samples
+from librosa.core import to_mono
 from librosa import cache
 from librosa import util
 from librosa.util.exceptions import ParameterError
