@@ -45,7 +45,7 @@ def calculate_index_spectrogram_singlecolumn(spectro):
 	#print("   shapes: %s" % [np.shape(entry) for entry in stats])
 	return stats
 
-def calculate_index_spectrograms(infpath):
+def calculate_index_spectrograms(infpath, hoppc=100):
 	"""Supply either a list of wav file paths, or a folder to be globbed, or a single file path (to be chopped into 60s chunks).
 	This is a generator function which will create an ITERATOR, returning one new column of index-pixel data on every loop of the iter."""
 
@@ -83,13 +83,14 @@ def calculate_index_spectrograms(infpath):
 			choplenspls = int(librosa.core.time_to_samples(choplensecs, audiosr)[0])
 		else:
 			choplenspls = len(audiodata)
-		for (audiochunk, audiosr) in load_yield_chunks(aninfpath, sr=None, mono=True, choplenspls=choplenspls):
+		hoplenspls = int(choplenspls * hoppc / 100.)
+		for (audiochunk, audiosr) in load_yield_chunks(aninfpath, sr=None, mono=True, choplenspls=choplenspls, hoplenspls=hoplenspls):
 			spectro = abs(librosa.core.stft(audiochunk))
 			somedata = calculate_index_spectrogram_singlecolumn(spectro)
 			yield somedata
 
 
-def calculate_and_write_index_spectrograms(infpath, output_dir):
+def calculate_and_write_index_spectrograms(infpath, output_dir, hoppc=100):
 	"""simply iterates over the 1ry func and writes out files in our standard format (each channel a separate file, and each file a npz array)"""
 
 	# Make output directory if it doesn't exists
@@ -97,7 +98,7 @@ def calculate_and_write_index_spectrograms(infpath, output_dir):
 		os.makedirs(output_dir)
 
 	arrays = [[] for statname in statnames]
-	for results in calculate_index_spectrograms(infpath):
+	for results in calculate_index_spectrograms(infpath, hoppc=hoppc):
 		for (anarray, aresult) in zip(arrays, results):
 			anarray.append(aresult)
 
@@ -107,7 +108,7 @@ def calculate_and_write_index_spectrograms(infpath, output_dir):
 		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
 
 ########################
-def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
+def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
 	import matplotlib
 	import matplotlib.pyplot as plt
@@ -123,7 +124,7 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100):
 		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)) \
 		                                         / np.percentile(false_colour_image, 100-perc_cutoff, axis=(0,1), keepdims=True)
 
-	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
+	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.) * (hoppc/100.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
 	#print maxtime
 	timeunits = 'minutes'
 	if maxtime > 60:
@@ -155,14 +156,15 @@ if __name__=='__main__':
 	parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
 	parser.add_argument("-n", default=0, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
 	parser.add_argument("--savef", default='', type=str, help="Image file where the output figure should be saved (including extension (png, jpg, etc.). Expect issues with vector graphics")
+	parser.add_argument("--hop", default=100, type=float, help="How much to advance each 'frame', as a percentage of the 1-min framesize. Default of 100% is recommended for long >2hr. For 1hr audio you could try 25 for finer resolution.")
 	args = parser.parse_args()
 	print args
 
 	if args.c:
-		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o)
+		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o, hoppc=args.hop)
 
 	# now plot
-	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n)
+	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop)
 	if not args.savef == "":
 		ourplot.savefig(args.savef)
 	ourplot.show()
