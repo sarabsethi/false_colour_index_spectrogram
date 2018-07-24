@@ -156,7 +156,7 @@ if __name__=='__main__':
 	parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
 	parser.add_argument("-n", default=0, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
 	parser.add_argument("--savef", default='', type=str, help="Image file where the output figure should be saved (including extension (png, jpg, etc.). Expect issues with vector graphics")
-	parser.add_argument("--hop", default=100, type=float, help="How much to advance each 'frame', as a percentage of the 1-min framesize. Default of 100% is recommended for long >2hr. For 1hr audio you could try 25 for finer resolution.")
+	parser.add_argument("--hop", default=100, type=float, help="How much to advance each 'frame', as a percentage of the 1-min framesize. Default of 100%% is recommended for long >2hr. For 1hr audio you could try 25 for finer resolution.")
 	args = parser.parse_args()
 	print args
 
