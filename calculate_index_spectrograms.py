@@ -127,17 +127,18 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100):
 	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.) * (hoppc/100.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
 	#print maxtime
 	timeunits = 'minutes'
-	if maxtime > 60:
+	if maxtime > 180:
 		maxtime /= 60.
 		timeunits = "hours"
 
-	matplotlib.rcParams.update({'font.size': 30})
+	matplotlib.rcParams.update({'font.size': 12})
 	matplotlib.rcParams.update({'font.family' : 'serif'})
 	fig=plt.figure(figsize=(15, 5), facecolor='white')
 	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2000))
-	plt.rcParams.update({'font.size': 12})
 	plt.xlabel('Time (%s)' % timeunits)
 	plt.ylabel('Frequency (kHz)')
+	plt.xticks(fontsize=10)
+	plt.yticks(fontsize=10)
 	plt.tight_layout()
 	return plt.gcf()
 
@@ -167,5 +168,7 @@ if __name__=='__main__':
 	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop)
 	if not args.savef == "":
 		ourplot.savefig(args.savef)
-	ourplot.show()
-	raw_input("Press a key to close")
+	else:
+		ourplot.show()
+		raw_input("Press a key to close")
+
