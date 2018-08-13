@@ -108,10 +108,15 @@ def calculate_and_write_index_spectrograms(infpath, output_dir, hoppc=100):
 		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
 
 ########################
-def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100):
+def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100, fmin=0, fmax=None):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
 	import matplotlib
 	import matplotlib.pyplot as plt
+
+	if fmin<0:
+		raise ValueError("Negative minimum frequency was requested. %g" % fmin)
+	if fmax is None or fmax>(Fs*0.5):
+		fmax = Fs*0.5
 
 	false_colour_image = np.array([np.load(os.path.join(data_dir, 'indexdata_%s.npz' % statname))['specdata'] for statname in statnames])
 	false_colour_image = np.transpose(false_colour_image, axes=(2,1,0))
@@ -127,17 +132,19 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100):
 	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.) * (hoppc/100.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
 	#print maxtime
 	timeunits = 'minutes'
-	if maxtime > 60:
+	if maxtime > 180:
 		maxtime /= 60.
 		timeunits = "hours"
 
-	matplotlib.rcParams.update({'font.size': 30})
+	matplotlib.rcParams.update({'font.size': 12})
 	matplotlib.rcParams.update({'font.family' : 'serif'})
 	fig=plt.figure(figsize=(15, 5), facecolor='white')
 	plt.imshow(false_colour_image, aspect='auto', origin='lower', interpolation='none', extent=(0, maxtime, 0, Fs/2000))
-	plt.rcParams.update({'font.size': 12})
+	plt.ylim(fmin/1000, fmax/1000)
 	plt.xlabel('Time (%s)' % timeunits)
 	plt.ylabel('Frequency (kHz)')
+	plt.xticks(fontsize=10)
+	plt.yticks(fontsize=10)
 	plt.tight_layout()
 	return plt.gcf()
 
@@ -156,7 +163,9 @@ if __name__=='__main__':
 	parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
 	parser.add_argument("-n", default=0, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
 	parser.add_argument("--savef", default='', type=str, help="Image file where the output figure should be saved (including extension (png, jpg, etc.). Expect issues with vector graphics")
-	parser.add_argument("--hop", default=100, type=float, help="How much to advance each 'frame', as a percentage of the 1-min framesize. Default of 100% is recommended for long >2hr. For 1hr audio you could try 25 for finer resolution.")
+	parser.add_argument("--hop", default=100, type=float, help="How much to advance each 'frame', as a percentage of the 1-min framesize. Default of 100%% is recommended for long >2hr. For 1hr audio you could try 25 for finer resolution.")
+	parser.add_argument("--fmin", default=0, type=float, help="Lowest frequency (in Hz) to show on the plot.")
+	parser.add_argument("--fmax", default=44100, type=float, help="Highest frequency (in Hz) to show on the plot.")
 	args = parser.parse_args()
 	print args
 
@@ -164,8 +173,10 @@ if __name__=='__main__':
 		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o, hoppc=args.hop)
 
 	# now plot
-	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop)
+	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop, fmin=args.fmin, fmax=args.fmax)
 	if not args.savef == "":
 		ourplot.savefig(args.savef)
-	ourplot.show()
-	raw_input("Press a key to close")
+	else:
+		ourplot.show()
+		raw_input("Press a key to close")
+
