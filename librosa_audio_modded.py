@@ -11,7 +11,6 @@ import scipy.signal
 import scipy.fftpack as fft
 import resampy
 
-from librosa.core.time_frequency import frames_to_samples, time_to_samples
 from librosa.core import to_mono
 from librosa import cache
 from librosa import util
@@ -167,4 +166,3 @@ def load_yield_chunks(path, sr=22050, mono=True, offset=0.0, duration=None,
 
     if y.shape[0] != 0:
         print("WARNING: load_yield_chunks() dropped %i final samples" % (y.shape[0]))   # TODO can the final incomplete chunk be handled elegantly within the above loop?
-

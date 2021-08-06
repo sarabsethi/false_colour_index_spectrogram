@@ -6,6 +6,8 @@ Generate a false colour index spectrogram to nicely visualise long duration soun
 
 `plot_index_distributions.py` - used to look at the distribution of values for each of the three indices
 
+Code tested using Python 3.7 on a Windows laptop, but should work on most other platforms.
+
 ### Example output plot:
 24 hours recorded from a tropical rainforest in Sabah, Borneo. Dawn and dusk choruses are clearly visible with different patterns of calling during the day and night time
 ![Example 24 hour false colour index spectrogram](https://raw.githubusercontent.com/sarabsethi/false_colour_index_spectrogram/master/example_24_hrs.JPG)
@@ -20,4 +22,3 @@ Numpy ndarrays storing individual index spectrograms are stored in ./output_spec
 ## Authors
 * [Sarab Sethi](http://www.imperial.ac.uk/people/s.sethi16) (Imperial College London)
 * [Dan Stowell](http://mcld.co.uk/research/) (Queen Mary University of London)
-
