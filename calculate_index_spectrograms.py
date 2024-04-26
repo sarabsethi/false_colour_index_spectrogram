@@ -94,8 +94,7 @@ def calculate_index_spectrograms(path_list, hop_percent=100):
 		
 		# get the current file's sample rate
 		audiosr = librosa.get_samplerate(path)
-
-
+  
 		if process_in_chunks:
 			chunk_length = int(chunk_length_seconds * audiosr)
 		else:
