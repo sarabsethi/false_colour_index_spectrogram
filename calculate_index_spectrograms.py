@@ -46,6 +46,31 @@ def specpow(spectro):
 ############################################################
 # functions to calc the stats
 
+def get_supported_audio_files(directory):
+    # Get a dictionary of supported audio formats
+    formats = sf.available_formats()
+    
+    # We'll assume that the format codes from `available_formats()` correspond to common file extensions.
+    # This might not always be the case, and you might need to manually map them to correct file extensions.
+    supported_extensions = set(formats.keys())
+    
+    # Add common audio file extensions that are related to the supported formats
+    supported_extensions.update(['wav', 'flac', 'aiff', 'ogg', 'mp3', 'aac'])
+
+    # Prepare to collect supported audio files
+    supported_files = []
+
+    # Walk through the directory
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            # Check file extension
+            extension = file.split('.')[-1].lower()
+            if extension in supported_extensions:
+                # Add file to list if its extension is supported
+                supported_files.append(os.path.join(root, file))
+
+    return supported_files
+
 def calculate_index_spectrogram_singlecolumn(spectro):
 	"""Calculates a single 'column', i.e. it assumes the supplied spectrogram represents a single temporal window to be summarised into a single column pixel."""
 	stats = [
@@ -140,7 +165,7 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100, fmin=0, 
 def main():
     
 	parser = argparse.ArgumentParser()
-	parser.add_argument("inpaths", nargs='*', default=default_in, help="Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify")
+	parser.add_argument("-i", default=default_in, help="Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify")
 	parser.add_argument("-o", default=default_out, type=str, help="Output path: a folder (which should exist already) in which data files will be written.")
 	#parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
 	parser.add_argument("-n", default=1, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
@@ -150,40 +175,26 @@ def main():
 	parser.add_argument("--fmax", default=44100, type=float, help="Highest frequency (in Hz) to show on the plot.")
 	args = parser.parse_args()
 	
-	path_list = args.inpaths
+	input_path = args.i
+	print(input_path)
  
-	if type(path_list) is str:
-		if not os.path.exists(path_list):
-			raise ValueError("Path not found: %s" % path_list)
+	# decide if the in_path is a file or a directory
+	if os.path.isfile(input_path):
+		
+		# make a singleton list so the loop still works
+		path_list = [input_path]
+		print(f'processing file {input_path} ')
+
+	elif os.path.isdir(input_path):
+     
+		# we have a dir so list the audio files
+		path_list = get_supported_audio_files(input_path)
+		print(f'processing folder {input_path} ')
 	else:
-		for path in path_list:
-			if not os.path.exists(path):
-				raise ValueError("Path not found: %s" % path)
-
-	#############################################
-	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
- 
-	if type(path_list) is not str:
-		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
-		if len(path_list)==1:  # in this special case, we strip off the list so the next check can determine if it's a folder to glob
-			path_list = path_list[0]
-   
-	if type(path_list) is str:
-		if os.path.isdir(path_list):
-			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
-			path_list = sorted(glob.iglob(os.path.join(path_list, "*.wav")))
-		else:
-			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
-			path_list = [path_list]
-			process_in_chunks = True
-
-	#############################################
-	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
-
-	path_list = sorted(path_list)
- 
- 
+		raise ValueError("Path not found: %s" % path_list)
+  
 	for path in path_list:
+		print(f'processing file {path}')
 		if profiling:
 			# if the code is being profilled import cPython
 			import cProfile
