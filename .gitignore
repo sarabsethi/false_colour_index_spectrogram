@@ -9,9 +9,14 @@
 *.npy
 .idea
 *.npz
+*.flac
+
+*.prof
+
+.DS_Store
 
 input_audio
-output_spectrograms
+output_spectrograms/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -114,3 +119,4 @@ ENV/
 
 # mypy
 .mypy_cache/
+.DS_Store
