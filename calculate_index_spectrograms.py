@@ -19,7 +19,7 @@ indices_to_calc = ['fentropy', 'aci', 'specpow']  # these are the stats that we 
 chunk_length_seconds = 60  # in seconds
 process_in_chunks = True
 
-default_in  = 'SMM05736_20230920_180556.flac'
+default_in  = './input_audio/SMM05736_20230920_180556.flac'
 default_out = 'default_output'
 
 perc_cutoff = 10
@@ -55,57 +55,22 @@ def calculate_index_spectrogram_singlecolumn(spectro):
 	]
 	return stats
 
-def calculate_index_spectrograms(path_list, hop_percent=100):
-    # takes a folder or file name
-    # returns 
-	"""Supply either a list of wav file paths, or a folder to be globbed, or a single file path (to be chopped into 60s chunks).
-	This is a generator function which will create an ITERATOR, returning one new column of index-pixel data on every loop of the iter."""
-	
-	if type(path_list) is str:
-		if not os.path.exists(path_list):
-			raise ValueError("Path not found: %s" % path_list)
+def calculate_index_spectrograms(path, hop_percent=100):
+		
+	# get the current file's sample rate
+	audiosr = librosa.get_samplerate(path)
+
+	if process_in_chunks:
+		chunk_length = int(chunk_length_seconds * audiosr)
 	else:
-		for path in path_list:
-			if not os.path.exists(path):
-				raise ValueError("Path not found: %s" % path)
+		chunk_length = len(librosa.load(path, sr=None)[0])
 
-	#############################################
-	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
- 
-	if type(path_list) is not str:
-		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
-		if len(path_list)==1:  # in this special case, we strip off the list so the next check can determine if it's a folder to glob
-			path_list = path_list[0]
-   
-	if type(path_list) is str:
-		if os.path.isdir(path_list):
-			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
-			path_list = sorted(glob.iglob(os.path.join(path_list, "*.wav")))
-		else:
-			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
-			path_list = [path_list]
-			process_in_chunks = True
-
-	#############################################
-	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
-	path_list = sorted(path_list)
- 
-	for path in path_list:
-		
-		# get the current file's sample rate
-		audiosr = librosa.get_samplerate(path)
-  
-		if process_in_chunks:
-			chunk_length = int(chunk_length_seconds * audiosr)
-		else:
-			chunk_length = len(librosa.load(path, sr=None)[0])
-   
-		hop_length_samples = int(chunk_length * hop_percent / 100.)
-		
-		for block in sf.blocks(path, blocksize=chunk_length, overlap=(hop_length_samples - chunk_length)):
-			spectro = abs(librosa.core.stft(block))  #[1x1025]
-			somedata = calculate_index_spectrogram_singlecolumn(spectro) # [3x1025]
-			yield somedata
+	hop_length_samples = int(chunk_length * hop_percent / 100.)
+	
+	for block in sf.blocks(path, blocksize=chunk_length, overlap=(hop_length_samples - chunk_length)):
+		spectro = abs(librosa.core.stft(block))  #[1x1025]
+		somedata = calculate_index_spectrogram_singlecolumn(spectro) # [3x1025]
+		yield somedata
 
 
 def calculate_and_write_index_spectrograms(infpath, output_dir, hoppc=100):
@@ -184,23 +149,58 @@ def main():
 	parser.add_argument("--fmin", default=0, type=float, help="Lowest frequency (in Hz) to show on the plot.")
 	parser.add_argument("--fmax", default=44100, type=float, help="Highest frequency (in Hz) to show on the plot.")
 	args = parser.parse_args()
-
-	if profiling:
-		# if the code is being profilled import cPython
-		import cProfile
-		import pstats
-
-		pr =  cProfile.Profile()
-		pr.enable()
-		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o, hoppc=args.hop)
-		pr.disable()
-		stats = pstats.Stats(pr)
-		stats.sort_stats(pstats.SortKey.TIME)
-		# Now you have two options, either print the data or save it as a file
-		stats.print_stats() # Print The Stats
-		stats.dump_stats("profilling.prof") # Saves the data in a file, can me used to see the data visually
+	
+	path_list = args.inpaths
+ 
+	if type(path_list) is str:
+		if not os.path.exists(path_list):
+			raise ValueError("Path not found: %s" % path_list)
 	else:
-		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o, hoppc=args.hop)
+		for path in path_list:
+			if not os.path.exists(path):
+				raise ValueError("Path not found: %s" % path)
+
+	#############################################
+	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
+ 
+	if type(path_list) is not str:
+		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
+		if len(path_list)==1:  # in this special case, we strip off the list so the next check can determine if it's a folder to glob
+			path_list = path_list[0]
+   
+	if type(path_list) is str:
+		if os.path.isdir(path_list):
+			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
+			path_list = sorted(glob.iglob(os.path.join(path_list, "*.wav")))
+		else:
+			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
+			path_list = [path_list]
+			process_in_chunks = True
+
+	#############################################
+	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
+
+	path_list = sorted(path_list)
+ 
+ 
+	for path in path_list:
+		if profiling:
+			# if the code is being profilled import cPython
+			import cProfile
+			import pstats
+
+			pr =  cProfile.Profile()
+			pr.enable()
+			calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o, hoppc=args.hop)
+			pr.disable()
+			stats = pstats.Stats(pr)
+			stats.sort_stats(pstats.SortKey.TIME)
+			# Now you have two options, either print the data or save it as a file
+			stats.print_stats() # Print The Stats
+			stats.dump_stats("profilling.prof") # Saves the data in a file, can me used to see the data visually
+		else:
+			calculate_and_write_index_spectrograms(path, output_dir=args.o, hoppc=args.hop)
+   
       
 	# now plot
 	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop, fmin=args.fmin, fmax=args.fmax)
