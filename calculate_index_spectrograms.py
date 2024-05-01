@@ -9,17 +9,19 @@ import matplotlib.pyplot as plt
 import librosa
 from multiprocessing import Pool
 
+import multiprocessing
+from queue import Empty
+
 profiling = False  # option to profile code using cPython
 
 ############################################################
 # constants
 
-
 indices_to_calc = ['fentropy', 'aci', 'specpow']  # these are the stats that we use for the RGB channels. Output saved as profilling.prof
 chunk_length_seconds = 60  # in seconds
 process_in_chunks = True
 
-default_in  = './input_audio/SMM05736_20230920_180556.flac'
+default_in  = './input_audio'
 default_out = 'default_output'
 
 perc_cutoff = 10
@@ -43,8 +45,22 @@ def specpow(spectro):
 	"Calculate power for each freq bin separately"
 	return np.mean(spectro * spectro, axis=1)
 
+# select the channels for each
+function_names = {'red': (aci, ()),
+                  'green': (magsum, ()),
+                  'blue': (specpow, ())}
+
 ############################################################
 # functions to calc the stats
+
+def calculate_index_spectrogram_singlecolumn(spectro):
+	"""Calculates a single 'column', i.e. it assumes the supplied spectrogram represents a single temporal window to be summarised into a single column pixel."""
+	stats = [
+		fentropy(spectro),
+		aci(spectro),
+		specpow(spectro),
+	]
+	return stats
 
 def get_supported_audio_files(directory):
     # Get a dictionary of supported audio formats
@@ -71,56 +87,53 @@ def get_supported_audio_files(directory):
 
     return supported_files
 
-def calculate_index_spectrogram_singlecolumn(spectro):
-	"""Calculates a single 'column', i.e. it assumes the supplied spectrogram represents a single temporal window to be summarised into a single column pixel."""
-	stats = [
-		fentropy(spectro),
-		aci(spectro),
-		specpow(spectro),
-	]
-	return stats
-
 def calculate_index_spectrograms(path, hop_percent=100):
-		
+    # reads an audio file in blocks and yeilds blocks as iterable.
+	# each block yields a 3x1025 list for 3 acoustic indices and 1025 stft bins
+    
 	# get the current file's sample rate
 	audiosr = librosa.get_samplerate(path)
 
+	# option to process in one chunk
 	if process_in_chunks:
 		chunk_length = int(chunk_length_seconds * audiosr)
 	else:
 		chunk_length = len(librosa.load(path, sr=None)[0])
 
-	hop_length_samples = int(chunk_length * hop_percent / 100.)
-	
-	for block in sf.blocks(path, blocksize=chunk_length, overlap=(hop_length_samples - chunk_length)):
-		spectro = abs(librosa.core.stft(block))  #[1x1025]
-		somedata = calculate_index_spectrogram_singlecolumn(spectro) # [3x1025]
-		yield somedata
-
-
-def calculate_and_write_index_spectrograms(infpath, output_dir, hoppc=100):
-	"""simply iterates over the 1ry func and writes out files in our standard format (each channel a separate file, and each file a npz array)"""
-
-	# Make output directory if it doesn't exists
-	if not os.path.exists(output_dir):
-		os.makedirs(output_dir)
-
-	# create an empty list containing a list for each in indices_to_calc
-	arrays = [[] for statname in indices_to_calc]
+	# calculate the hop length from hop percet
+	# TODO Change hop length to percent overlap
  
-	for results in calculate_index_spectrograms(infpath, hop_percent=hoppc):
-		for (anarray, aresult) in zip(arrays, results):
-			anarray.append(aresult)
+	hop_length_samples = int(chunk_length * hop_percent / 100.)
+	#file = sf.SoundFile(path, 'r')
+	with sf.SoundFile(path, 'r') as file:
+		for block in file.blocks(chunk_length, hop_length_samples - chunk_length):
+			spectro = abs(librosa.core.stft(block))  #[1x1025]		
+			stats = [
+				fentropy(spectro),
+				aci(spectro),
+				specpow(spectro),
+			]
+			yield stats
+   
+	print(f'closed file {path}')
 
-	for (anarray, astatname) in zip(arrays, indices_to_calc):
-		anarray = np.array(anarray)
-		print(np.shape(anarray))
-		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
+def process_file(path, hop_percent, queue):
+	# create an empty list containing a list for each in indices_to_calc
+	result_arrays = [[] for statname in indices_to_calc]
+
+	for block in calculate_index_spectrograms(path, hop_percent=hop_percent):
+		for (results, result) in zip(result_arrays, block):
+			results.append(result)
+   
+	#print(len(results))
+	# add n by 3 array result  where n is number of blocks usually 60 sec long
+	print(f'adding result for {path} to queue')
+	queue.put(result_arrays)
+	print(f'complete')
 
 ########################
 def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100, fmin=0, fmax=None):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
-
 
 	if fmin<0:
 		raise ValueError("Negative minimum frequency was requested. %g" % fmin)
@@ -176,24 +189,84 @@ def main():
 	args = parser.parse_args()
 	
 	input_path = args.i
+	output_dir=args.o
 	print(input_path)
  
 	# decide if the in_path is a file or a directory
 	if os.path.isfile(input_path):
 		
 		# make a singleton list so the loop still works
-		path_list = [input_path]
+		paths = [input_path]
 		print(f'processing file {input_path} ')
 
 	elif os.path.isdir(input_path):
      
 		# we have a dir so list the audio files
-		path_list = get_supported_audio_files(input_path)
+		paths = get_supported_audio_files(input_path)
 		print(f'processing folder {input_path} ')
 	else:
-		raise ValueError("Path not found: %s" % path_list)
+		raise ValueError("Path not found: %s" % paths)
   
-	for path in path_list:
+	queue = multiprocessing.Queue()
+	processes = []
+ 
+	# if the output folder doesn't exist, create it
+	if not os.path.exists(output_dir):
+		os.makedirs(output_dir)
+
+	for path in paths:
+		print(f'adding {path} to the queue')
+		p = multiprocessing.Process(target=process_file, args=(path, 100, queue))
+		processes.append(p)
+		p.start()
+  
+	results = []
+	for p in processes:
+		try:
+			results += queue.get(timeout=1)
+			print('queue has result')
+			p.join()
+		except Empty:
+			print('queue is empty again')
+			break
+		except Exception as e:
+			print(e)
+
+	arrays = [[] for statname in indices_to_calc]
+	for (anarray, astatname) in zip(arrays, indices_to_calc):
+		anarray = np.array(anarray)
+		print(np.shape(anarray))
+		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
+  
+	# now plot
+	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop, fmin=args.fmin, fmax=args.fmax)
+	if not args.savef == "":
+		ourplot.savefig(args.savef)
+	else:
+		ourplot.show()
+		input("Press a key to close")
+  
+  
+  	
+   # Retrieve results from the queue in the correct order
+"""
+	results = []
+	while True:
+		try:
+			print('queue has result')
+			
+		except Empty:
+			print('queue is empty again')
+			break
+		except Exception as e:
+			print(e)
+"""
+
+
+
+
+'''
+	for path in paths:
 		print(f'processing file {path}')
 		if profiling:
 			# if the code is being profilled import cPython
@@ -202,7 +275,7 @@ def main():
 
 			pr =  cProfile.Profile()
 			pr.enable()
-			calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o, hoppc=args.hop)
+			calculate_and_write_index_spectrograms(path_list=args.inpaths, output_dir=args.o, hoppc=args.hop)
 			pr.disable()
 			stats = pstats.Stats(pr)
 			stats.sort_stats(pstats.SortKey.TIME)
@@ -211,17 +284,7 @@ def main():
 			stats.dump_stats("profilling.prof") # Saves the data in a file, can me used to see the data visually
 		else:
 			calculate_and_write_index_spectrograms(path, output_dir=args.o, hoppc=args.hop)
-   
-      
-	# now plot
-	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop, fmin=args.fmin, fmax=args.fmax)
-	if not args.savef == "":
-		ourplot.savefig(args.savef)
-	else:
-		ourplot.show()
-		input("Press a key to close")
-    
+'''
 ########################
 if __name__=='__main__':
-    
     main()
