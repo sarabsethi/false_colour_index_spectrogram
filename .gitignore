@@ -1,7 +1,6 @@
 *.png
 *.svg
 *.eps
-
 *.wav
 *.aac
 *.mp3
@@ -10,13 +9,10 @@
 .idea
 *.npz
 *.flac
-
 *.prof
-
 .DS_Store
-
-input_audio
-output_spectrograms/
+input_audio/*
+default_output/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -11,7 +11,9 @@ from queue import Empty
 
 ############################################################
 # constants
-indices_to_calc = ['fentropy', 'aci', 'specpow']  # these are the stats that we use for the RGB channels. Output saved as profilling.prof
+
+# define which stats to run, must match function names exactly
+indices_to_calc = ['fentropy', 'aci', 'magsum']  # in order of [Red Green Blue] channels.
 chunk_length_seconds = 60  # in seconds
 process_in_chunks = True
 doscaling = True 
@@ -22,6 +24,7 @@ default_out = 'default_output'
 # which percentile to cut off from the plots
 perc_cutoff = 10
 
+# dont use logical cores as hyper threading is slower
 physical_cores = psutil.cpu_count(logical = False)
 
 
@@ -49,12 +52,26 @@ def specpow(spectro):
 
 def calculate_index_spectrogram_singlecolumn(spectro):
 	"""Calculates a single 'column', i.e. it assumes the supplied spectrogram represents a single temporal window to be summarised into a single column pixel."""
-	stats = [
-		fentropy(spectro),
-		aci(spectro),
-		specpow(spectro),
-	]
+
+	if len(indices_to_calc) == 3:
+		stats = []
+		for acoustic_index in indices_to_calc:
+			# Check if the function exists
+			if acoustic_index in globals() and callable(globals()[acoustic_index]):
+				# Call the function and append the result to the output list
+				stats.append(globals()[acoustic_index](spectro))
+			else:
+				raise Exception(f"Function '{acoustic_index}' not found, acoustic indices must match valid functions")
+	else:
+		raise Exception("There must be 3 acoustic indices defined in indices_to_calc")
+
 	return stats
+
+
+ 		#stats = [
+		#aci(spectro), 		# red
+  		#fentropy(spectro), 	# green
+  		#specpow(spectro), 	# blue
 
 def get_supported_audio_files(directory):
     # Get a dictionary of supported audio formats
@@ -99,11 +116,7 @@ def calculate_index_spectrograms(path, hop_percent=100):
 		#print(f"{datetime.now()}: generating stats for {path}")
 		for block in file.blocks(chunk_length, hop_length_samples - chunk_length):
 			spectro = abs(librosa.core.stft(block))  #[1x1025]		
-			stats = [
-				fentropy(spectro),
-				aci(spectro),
-				specpow(spectro),
-			]
+			stats = calculate_index_spectrogram_singlecolumn(spectro)
 			yield stats
 		#print(f"{datetime.now()}: completed calculating stats for {path}")
  
@@ -257,6 +270,8 @@ def main():
 	for stat in range(results.shape[0]):
 		specdata = results[stat]
 		np.savez(os.path.join(output_dir, f'indexdata_{indices_to_calc[stat]}.npz'), specdata=specdata)
+		np.savetxt(os.path.join(output_dir, f'indexdata_{indices_to_calc[stat]}.csv'), specdata, delimiter=",")
+  
   
 	# now plot
 	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop, fmin=args.fmin, fmax=args.fmax)
