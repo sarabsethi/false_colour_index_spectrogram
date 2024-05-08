@@ -9,11 +9,12 @@ Code tested using Python 3.12 on a 6 core Intel i7 Macbook Pro at 2.6 GHz. Hyper
 
 **Standard Use Case**
 
-1. Move audio files to analyse to the ./input_audio folder or use `-i` command line argument to point to another location. 
-1. All audio files in the target folder will be combined into a single false-colour spectrogram. 
-1. Ensure that the naming scheme used for audio files results in consecutive files when sorted in alphabetically by name. 
-1. Assumes zero gap between input audio files. Any gaps between files will not be taken into account so use continuous data for each job.
-1. The false-colour spectrogram will be saved using `yyyy-mm-dd_HHMM_false-colour-plot.png` by default. This can be changed using the `--savef` argument.
+1. Select which indices to calculate by adding 3 function names in list `indices_to_calc`. Currently available are: `fentropy`, `aci`, `magsum` and `specpow`.
+2. Move audio files to analyse to the ./input_audio folder or use `-i` command line argument to point to another location. 
+3. All audio files in the target folder will be combined into a single false-colour spectrogram. 
+4. Ensure that the naming scheme used for audio files results in consecutive files when sorted in alphabetically by name. 
+5. Assumes zero gap between input audio files. Any gaps between files will not be taken into account so use continuous data for each job.
+6. The false-colour spectrogram will be saved using `yyyy-mm-dd_HHMM_false-colour-plot.png` by default. This can be changed using the `--savef` argument.
 
 Command line options:
 * `-i`, default="./input_audio", "Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify"
