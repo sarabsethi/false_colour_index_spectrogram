@@ -27,7 +27,6 @@ perc_cutoff = 10
 # dont use logical cores as hyper threading is slower
 physical_cores = psutil.cpu_count(logical = False)
 
-
 ############################################################
 # some acoustic indices
 

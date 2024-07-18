@@ -1,13 +1,35 @@
 # false_colour_index_spectrogram
 Generate a false colour index spectrogram to visualise long duration soundscape recordings - based on [Towsey et. al. 2014](http://www.sciencedirect.com/science/article/pii/S1877050914002403)
 
-## Scripts
+Code tested using Python 3.12 on a 6 core Intel i7 Macbook Pro at 2.6 GHz and 14 core M3 max running MaxOS 14.4.
 
-### `calculate_index_spectrograms.py` - 
+Install miniconda or miniforge. 
 
-Code tested using Python 3.12 on a 6 core Intel i7 Macbook Pro at 2.6 GHz. Hyperthreading caused a slow down of aprox. 20%, the code is set to ignore logical cores.
+Clone the repository and open the cloned folder in a terminal. The environment can be created using;
 
-**Standard Use Case**
+`conda env create -f environment.yml`
+
+activate the newly created environment using:
+
+`conda activate false_colour_index`
+
+The code is designed to process 24 hours of audio. If this audio is placed in multiple files in the `./input_audio` folder use the following command to show and save the false colour spectrograph.
+
+`python calculate_index_spectrograms.py`
+
+If you need to process many sets of 24 hours, create folders and create a batch task pointing the script at each 24 hour folder:
+
+```
+python calculate_index_spectrograms.py -i /path/to/your/folder1
+python calculate_index_spectrograms.py -i /path/to/your/folder2
+python calculate_index_spectrograms.py -i /path/to/your/folder3
+python calculate_index_spectrograms.py -i /path/to/your/folder4
+```
+
+
+`calculate_index_spectrograms.py` contains the main functions which can be used in your own Python scripts if you import the file as a module. When using the file as a script, you can optionally change the input/output paths and you can also disable re-calculation of the statistics: run `python calculate_index_spectrograms.py -h` for information about the command-line options.
+
+## Usage 
 
 1. Select which indices to calculate by adding 3 function names in list `indices_to_calc`. Currently available are: `fentropy`, `aci`, `magsum` and `specpow`.
 2. Move audio files to analyse to the ./input_audio folder or use `-i` command line argument to point to another location. 
@@ -25,20 +47,20 @@ Command line options:
 * `--fmin`, default=0, "Lowest frequency (in Hz) to show on the plot."
 * `--fmax`, default=44100, "Highest frequency (in Hz) to show on the plot."
    
-This file also contains the main functions which can be used in your own Python scripts if you import the file as a module. When using the file as a script, you can optionally change the input/output paths and you can also disable re-calculation of the statistics: run `python calculate_index_spectrograms.py -h` for information about the command-line options.
 
-### `plot_index_distributions.py` 
-used to look at the distribution of values for each of the three indices
-
+`plot_index_distributions.py` can be used to look at the distribution of values for each of the three indices
 
 ### Example output plot:
+
 24 hours recorded from a tropical rainforest in Sabah, Borneo. Dawn and dusk choruses are clearly visible with different patterns of calling during the day and night time
 ![Example 24 hour false colour index spectrogram](https://raw.githubusercontent.com/sarabsethi/false_colour_index_spectrogram/master/example_24_hrs.JPG)
 
 ## Input / output data format
-Input can be a single long file which will be analysed in 1-minute chunks, OR a folder containing a series of WAV files (we assume they are 1 minute long).
+Input can be a single long file which will be analysed in 1-minute chunks, OR a folder containing a series of consecutive WAV files.
 
-Long-duration recordings split into multiple WAV files of any length can be handled by this script. On a 6 core Intel i7 running MacOS 14.4.1 24 hours of audio can be processed in 120 seconds.
+Long-duration recordings split into multiple WAV files of any length can be handled by this script. 
+
+24 hours of audio can be processed on a 14 core M3 with MacOS 14.4 in 31 seconds, pn a 6 core Intel i7 with MacOS 14.4 it takes 120 seconds,
 
 Numpy ndarrays storing individual index spectrograms are stored in ./output_spectrograms/ folder.
 
@@ -52,4 +74,6 @@ Numpy ndarrays storing individual index spectrograms are stored in ./output_spec
 ## Authors
 * [Sarab Sethi](http://www.imperial.ac.uk/people/s.sethi16) (Imperial College London)
 * [Dan Stowell](http://mcld.co.uk/research/) (Queen Mary University of London)
-* * [Joshua Taylor (re-written for soundfile library under python 3.12 and added parallel processing)](https://socialenvironment.org.uk/about/) (Social Environment CIC)
+
+## Change Log
+* * [Joshua Taylor (re-written for standard soundfile library under python 3.12 and added parallel processing)](https://socialenvironment.org.uk/about/) (Social Environment CIC)
