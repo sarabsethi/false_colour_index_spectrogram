@@ -64,16 +64,15 @@ Long-duration recordings split into multiple WAV files of any length can be hand
 
 Numpy ndarrays storing individual index spectrograms are stored in ./output_spectrograms/ folder.
 
-# change log
--   April 2024 (Joshua C Taylor)
-    - replaced chunking via modified librosa with block processing from soundfile
-    - added multiprocessing ability
-    - run time for 24 hours reduced from 1 hour to 120 seconds
-    - edit variable names for readability
-   
 ## Authors
 * [Sarab Sethi](http://www.imperial.ac.uk/people/s.sethi16) (Imperial College London)
 * [Dan Stowell](http://mcld.co.uk/research/) (Queen Mary University of London)
 
 ## Change Log
-* * [Joshua Taylor (re-written for standard soundfile library under python 3.12 and added parallel processing)](https://socialenvironment.org.uk/about/) (Social Environment CIC)
+April 2024 
+* * [Joshua Taylor (subbed in standard soundfile library and added parallel processing)](https://socialenvironment.org.uk/about/) (Social Environment CIC)
+    - replaced chunking via modified librosa with block processing from soundfile
+    - added multiprocessing ability
+    - run time for 24 hours reduced from 1 hour to 32 seconds with 14-core M3 max
+    - edit variable names for readability
+    - runs on Python 3.12
