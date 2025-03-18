@@ -1,16 +1,31 @@
-
-import os, glob
-
-import numpy as np
+import argparse, os
+import numpy as np, matplotlib, matplotlib.pyplot as plt
 from scipy.stats import entropy
+from datetime import datetime
+import librosa, soundfile as sf
 
-import librosa
-from librosa_audio_modded import load_yield_chunks
+# multiprocessing libraries
+from multiprocessing import Manager
+import multiprocessing, psutil
+from queue import Empty
 
+############################################################
+# constants
 
-# some constants
-statnames = ['fentropy', 'aci', 'specpow']  # these are the stats that we use for the RGB channels
-choplensecs = 60
+# define which stats to run, must match function names exactly
+indices_to_calc = ['fentropy', 'aci', 'magsum']  # in order of [Red Green Blue] channels.
+chunk_length_seconds = 60  # in seconds
+process_in_chunks = True
+doscaling = True 
+
+default_in  = './input_audio'
+default_out = 'default_output'
+
+# which percentile to cut off from the plots
+perc_cutoff = 10
+
+# dont use logical cores as hyper threading is slower
+physical_cores = psutil.cpu_count(logical = False)
 
 ############################################################
 # some acoustic indices
@@ -31,101 +46,114 @@ def specpow(spectro):
 	"Calculate power for each freq bin separately"
 	return np.mean(spectro * spectro, axis=1)
 
-
 ############################################################
 # functions to calc the stats
 
 def calculate_index_spectrogram_singlecolumn(spectro):
 	"""Calculates a single 'column', i.e. it assumes the supplied spectrogram represents a single temporal window to be summarised into a single column pixel."""
-	stats = [
-		fentropy(spectro),
-		aci(spectro),
-		specpow(spectro),
-	]
-	#print("   shapes: %s" % [np.shape(entry) for entry in stats])
+
+	if len(indices_to_calc) == 3:
+		stats = []
+		for acoustic_index in indices_to_calc:
+			# Check if the function exists
+			if acoustic_index in globals() and callable(globals()[acoustic_index]):
+				# Call the function and append the result to the output list
+				stats.append(globals()[acoustic_index](spectro))
+			else:
+				raise Exception(f"Function '{acoustic_index}' not found, acoustic indices must match valid functions")
+	else:
+		raise Exception("There must be 3 acoustic indices defined in indices_to_calc")
+
 	return stats
 
-def calculate_index_spectrograms(infpath, hoppc=100):
-	"""Supply either a list of wav file paths, or a folder to be globbed, or a single file path (to be chopped into 60s chunks).
-	This is a generator function which will create an ITERATOR, returning one new column of index-pixel data on every loop of the iter."""
 
-	dochop = True
-	if type(infpath) is str:
-		if not os.path.exists(infpath):
-			raise ValueError("Path not found: %s" % infpath)
-	else:
-		for aninfpath in infpath:
-			if not os.path.exists(aninfpath):
-				raise ValueError("Path not found: %s" % aninfpath)
+ 		#stats = [
+		#aci(spectro), 		# red
+  		#fentropy(spectro), 	# green
+  		#specpow(spectro), 	# blue
 
-	#############################################
-	# Handle user argument - either a foldername, or a list of files, or a single file which we will auto-chop
-	if type(infpath) is not str:
-		# a list has been supplied. could be from the CLI arguments, even if it's a single item.
-		if len(infpath)==1:  # in this special case, we strip off the list so the next check can determine if it's a folder to glob
-			infpath = infpath[0]
-	if type(infpath) is str:
-		if os.path.isdir(infpath):
-			# if a single folder, we auto-expand it to a sorted list of the files found immediately within that folder
-			infpath = sorted(glob.iglob(os.path.join(infpath, "*.wav")))
+def get_supported_audio_files(directory):
+    # Get a dictionary of supported audio formats
+    formats = sf.available_formats()
+    
+    # We'll assume that the format codes from `available_formats()` correspond to common file extensions.
+    # This might not always be the case, and you might need to manually map them to correct file extensions.
+    supported_extensions = set(formats.keys())
+    
+    # Add common audio file extensions that are related to the supported formats
+    supported_extensions.update(['wav', 'flac', 'aiff', 'ogg', 'mp3', 'aac'])
+
+    # Prepare to collect supported audio files
+    supported_files = []
+
+    # Walk through the directory
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            # Check file extension
+            extension = file.split('.')[-1].lower()
+            if extension in supported_extensions:
+                # Add file to list if its extension is supported
+                supported_files.append(os.path.join(root, file))
+
+    return supported_files
+
+def calculate_index_spectrograms(path, hop_percent=100):
+    # reads an audio file in blocks and yields blocks as iterable.
+	# each block yields a 3x1025 list for 3 acoustic indices and 1025 stft bins
+    
+	# TODO Change hop length to percent overlap
+	with sf.SoundFile(path, 'r') as file:
+     
+		# calculate 60 seconds in samples
+		if process_in_chunks:
+			chunk_length = int(chunk_length_seconds * file.samplerate)
 		else:
-			# a single non-directory item submitted? then convert to a singleton list, and YES we'll chop it
-			infpath = [infpath]
-			dochop = True
+			chunk_length = file.frames
+   		
+		hop_length_samples = int(chunk_length * hop_percent / 100.)
 
-	#############################################
-	# at this point we expect infpath to be a list of wav filepaths. (if the user submitted a list of something-elses, this assumption could break. caveat emptor)
-	infpath = sorted(infpath)
-	for aninfpath in infpath:
-		#print(aninfpath)
-		_, audiosr = librosa.core.load(aninfpath, sr=None, mono=True, offset=0, duration=0) # to find the SR
-		if dochop:
-			choplenspls = int(librosa.core.time_to_samples(choplensecs, audiosr))
-		else:
-			choplenspls = len(audiodata)
-		hoplenspls = int(choplenspls * hoppc / 100.)
-		for (audiochunk, audiosr) in load_yield_chunks(aninfpath, sr=None, mono=True, choplenspls=choplenspls, hoplenspls=hoplenspls):
-			spectro = abs(librosa.core.stft(audiochunk))
-			somedata = calculate_index_spectrogram_singlecolumn(spectro)
-			yield somedata
+		#print(f"{datetime.now()}: generating stats for {path}")
+		for block in file.blocks(chunk_length, hop_length_samples - chunk_length):
+			spectro = abs(librosa.core.stft(block))  #[1x1025]		
+			stats = calculate_index_spectrogram_singlecolumn(spectro)
+			yield stats
+		#print(f"{datetime.now()}: completed calculating stats for {path}")
+ 
+def process_file(path, hop_percent, shared_dict, worker_name):
+	"""
+	function sent to a worker for each file. Results returned to shared_dict
+	"""
+	# create an empty list containing a list for each in indices_to_calc
+	result_arrays = [[] for statname in indices_to_calc]
 
-
-def calculate_and_write_index_spectrograms(infpath, output_dir, hoppc=100):
-	"""simply iterates over the 1ry func and writes out files in our standard format (each channel a separate file, and each file a npz array)"""
-
-	# Make output directory if it doesn't exists
-	if not os.path.exists(output_dir):
-		os.makedirs(output_dir)
-
-	arrays = [[] for statname in statnames]
-	for results in calculate_index_spectrograms(infpath, hoppc=hoppc):
-		for (anarray, aresult) in zip(arrays, results):
-			anarray.append(aresult)
-
-	for (anarray, astatname) in zip(arrays, statnames):
-		anarray = np.array(anarray)
-		print(np.shape(anarray))
-		np.savez(os.path.join(output_dir, 'indexdata_%s.npz' % astatname), specdata=anarray)
+	# iterate through 60 second blocks of audio
+	for block in calculate_index_spectrograms(path, hop_percent=hop_percent):
+		for (results, result) in zip(result_arrays, block):
+			results.append(result)
+	
+ 	# tell the user the worker completed the task
+	print(f'{datetime.now()}: [{worker_name}] complete {path} ')
+ 
+	# add the result to the shared dict
+	shared_dict.update({path:result_arrays})
+	
 
 ########################
 def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100, fmin=0, fmax=None):
 	"Composes a false-colour spectrogram plot from precalculated data. Returns the Matplotlib figure object, so you can show() it or plot it out to a file."
-	import matplotlib
-	import matplotlib.pyplot as plt
 
 	if fmin<0:
 		raise ValueError("Negative minimum frequency was requested. %g" % fmin)
 	if fmax is None or fmax>(Fs*0.5):
 		fmax = Fs*0.5
 
-	false_colour_image = np.array([np.load(os.path.join(data_dir, 'indexdata_%s.npz' % statname))['specdata'] for statname in statnames])
+	false_colour_image = np.array([np.load(os.path.join(data_dir, 'indexdata_%s.npz' % statname))['specdata'] for statname in indices_to_calc])
 	false_colour_image = np.transpose(false_colour_image, axes=(2,1,0))
 
 	print(np.shape(false_colour_image))
 	print('max {} min {}'.format(np.max(false_colour_image, axis=(0,1)), np.min(false_colour_image, axis=(0,1))))
 
 	if doscaling:
-		perc_cutoff = 10
 		#print(np.shape(false_colour_image))
 		#print(np.shape(np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)))
 		false_colour_image = (false_colour_image - np.percentile(false_colour_image, perc_cutoff, axis=(0,1), keepdims=True)) \
@@ -133,7 +161,7 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100, fmin=0, 
 
 	print('max {} min {}'.format(np.max(false_colour_image, axis=(0,1)), np.min(false_colour_image, axis=(0,1))))
 
-	maxtime = np.shape(false_colour_image)[1] * (float(choplensecs)/60.) * (hoppc/100.)  # NB assumes chunking was performed using chunks of size "choplensecs", which is not always true
+	maxtime = np.shape(false_colour_image)[1] * (float(chunk_length_seconds)/60.) * (hoppc/100.)  # NB assumes chunking was performed using chunks of size "chunk_length", which is not always true
 	#print(maxtime)
 	timeunits = 'minutes'
 	if maxtime > 180:
@@ -153,33 +181,108 @@ def plot_fci_spectrogram(data_dir, doscaling=True, Fs=44100, hoppc=100, fmin=0, 
 	return plt.gcf()
 
 ########################
-if __name__=='__main__':
-	import argparse
+def worker_process(queue):
+	while True:
+		try:	
+			args = queue.get(timeout=1)
+			if args is None:
+				break
+			print(f"{datetime.now()}: [{multiprocessing.current_process().name}] starting: {args[0]}")
+			process_file(*args, multiprocessing.current_process().name)
+		except Exception:
+			break
 
-	#default_in  = '/home/dans/birdsong/bl_dawnchorus_atmospheres/as_mono/022A-WA09020XXXXX-0916M0.flac'
-	default_in  = '/mnt/c/Users/Sarab/Dropbox/Github/letsea_salmon_crowding/audio_data'
-	#default_in  = '/home/dans/birdsong/jolle/20120203-AU1.WAV'
-	default_out = 'output_letsea_data'
-
+def main():
+    
 	parser = argparse.ArgumentParser()
-	parser.add_argument("inpaths", nargs='*', default=default_in, help="Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify")
+	parser.add_argument("-i", default=default_in, help="Input path: can be a path to a single file (which will be chunked), or a folder full of wavs, or the input can be a list of wav files which you explicitly specify")
 	parser.add_argument("-o", default=default_out, type=str, help="Output path: a folder (which should exist already) in which data files will be written.")
-	parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
+	#parser.add_argument("-c", default=1, type=int, choices=[0,1], help="Whether to calculate the stats afresh. Use -c=0 to reuse previously calculated stats.")
 	parser.add_argument("-n", default=1, type=int, choices=[0,1], help="Whether to apply scaling (normalisation) of the statistics before plotting them.")
 	parser.add_argument("--savef", default='', type=str, help="Image file where the output figure should be saved (including extension (png, jpg, etc.). Expect issues with vector graphics")
 	parser.add_argument("--hop", default=100, type=float, help="How much to advance each 'frame', as a percentage of the 1-min framesize. Default of 100%% is recommended for long >2hr. For 1hr audio you could try 25 for finer resolution.")
 	parser.add_argument("--fmin", default=0, type=float, help="Lowest frequency (in Hz) to show on the plot.")
 	parser.add_argument("--fmax", default=44100, type=float, help="Highest frequency (in Hz) to show on the plot.")
 	args = parser.parse_args()
-	print(args)
+	
+	input_path = args.i
+	output_dir=args.o
+	print(input_path)
+ 
+	# decide if the in_path is a file or a directory
+	if os.path.isfile(input_path):
+		
+		# make a singleton list so the loop still works
+		paths = [input_path]
+		print(f'{datetime.now()}: processing file {input_path} ')
 
-	if args.c:
-		calculate_and_write_index_spectrograms(infpath=args.inpaths, output_dir=args.o, hoppc=args.hop)
+	elif os.path.isdir(input_path):
+		# we have a dir so make a list of supported audio files
+		paths = get_supported_audio_files(input_path)
+		
+		# sort the paths by string
+		paths = sorted(paths)
+		print(f'{datetime.now()}: processing folder {input_path} ')
+	else:
+		raise ValueError("Path not found: %s" % paths)
+  
+	# if the output folder doesn't exist, create it
+	if not os.path.exists(output_dir):
+		os.makedirs(output_dir)
+	
+	# set the number of workers based on physical cores and number of tasks
+	if len(paths) >= physical_cores:
+		num_workers = physical_cores
+	else:
+		num_workers = len(paths)
+		
+     
+    # create a multiprocessing manager object
+	with Manager() as manager:
 
+		# create shared variable for results and tasks
+		shared_dict = manager.dict()
+	
+		# create a queue
+		queue = manager.Queue()
+	
+		# add audio files to process to queeue
+		for path in paths:
+			queue.put((path, 100, shared_dict))
+
+		processes = [multiprocessing.Process(target=worker_process, args=(queue,), name=f"Worker-{i+1}") for i in range(num_workers)]
+		
+		for p in processes:
+			p.start()
+
+		# Wait for all processes to finish
+		for p in processes:
+			p.join()
+
+		results = [np.array(shared_dict[path]) for path in paths]
+	# The output is in results shape (n_tasks,3,60,1025)
+	# print(results)
+	
+	print(f"{datetime.now()}: all processes have finished.")
+	results = np.concatenate(results, axis=1)
+ 
+	for stat in range(results.shape[0]):
+		specdata = results[stat]
+		np.savez(os.path.join(output_dir, f'indexdata_{indices_to_calc[stat]}.npz'), specdata=specdata)
+		np.savetxt(os.path.join(output_dir, f'indexdata_{indices_to_calc[stat]}.csv'), specdata, delimiter=",")
+  
+  
 	# now plot
 	ourplot = plot_fci_spectrogram(args.o, doscaling=args.n, hoppc=args.hop, fmin=args.fmin, fmax=args.fmax)
+	
 	if not args.savef == "":
 		ourplot.savefig(args.savef)
 	else:
+		current_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+		ourplot.savefig(f'{current_timestamp}_false_colour_plot.png')
 		ourplot.show()
 		input("Press a key to close")
+
+########################
+if __name__=='__main__':
+    main()

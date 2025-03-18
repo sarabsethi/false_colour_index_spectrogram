@@ -5,10 +5,13 @@ import os
 import glob
 
 # Load index spectrograms from file
-output_dir = './output_spectrograms'
+output_dir = './default_output'
+
 aci_spec = np.load(os.path.join(output_dir,'indexdata_aci.npz'))['specdata']
+
 fentropy_spec = np.load(os.path.join(output_dir,'indexdata_fentropy.npz'))['specdata']
-mag_spec = np.load(os.path.join(output_dir,'indexdata_specpow.npz'))['specdata']
+
+mag_spec = np.load(os.path.join(output_dir,'indexdata_magsum.npz'))['specdata']
 
 # Plot histogram of ACI values
 plt.subplot(311)
